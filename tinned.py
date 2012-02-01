@@ -25,13 +25,24 @@ class build_environment:
                                 stderr=subprocess.PIPE)
 
 
-class header:
-    def __init__(self, header_name):
-        pass
+class headers:
+    def __init__(self, *args):
+        self.results = {}
+        for arg in args:
+            self.results[arg] = False
+
+    def __getitem__(self, name):
+        try:
+            return self.results[name]
+        except KeyError:
+            raise KeyError('Header ' + name + ' not tested')
 
 class function:
     def __init__(self, cc, signature, headers = None, libs = None):
-        (result_type, func_name, args) = self.parse_signature(signature)
+        sig_info = self.parse_signature(signature)
+        result_type = sig_info[0]
+        func_name = sig_info[1]
+        args = sig_info[2:]
 
         self.signature = signature
         self.result = None
@@ -93,18 +104,50 @@ class function:
         s += '   return 0;\n'
         s += '}\n'
 
-        print s
         return s
 
     def parse_signature(self, signature):
-        type_and_name = re.compile('([A-Za-z_][A-Za-z_0-9]*\*?)\s([A-Za-z_][A-Za-z_0-9]*)\((.*)\)')
 
-        match = type_and_name.match(signature)
+        def c_lex(signature):
 
-        if match:
-            print match.group(1)
-            print match.group(2)
-            print [s.strip() for s in match.group(3).split(',')]
+            accum = ''
 
-        return ('int', 'gettimeofday',
-                [('struct timeval*', 'tv', 'NULL'), ('struct timezone*', 'tz', 'NULL')])
+            for c in signature:
+
+                if c in ('(', ')', ',', ' '):
+                    if accum != '':
+                        yield accum
+                        accum = ''
+                    if c != ' ':
+                        yield c
+                else:
+                    accum += c
+
+            if c != ' ':
+                yield accum
+
+        tok_gen = c_lex(signature)
+
+        # return type and signature
+        results = [tok_gen.next(), tok_gen.next()]
+
+        assert tok_gen.next() == '('
+
+        accum = []
+        for tok in tok_gen:
+            if tok in (',', ')'):
+
+                def_value = None
+
+                if '=' in accum:
+                    eq = accum.index('=')
+                    def_value = ' '.join(accum[eq+1:])
+                    accum = accum[:eq]
+
+                assert len(accum) >= 2
+                results.append((' '.join(accum[:-1]), accum[-1], def_value))
+                accum = []
+            else:
+                accum.append(tok)
+
+        return results

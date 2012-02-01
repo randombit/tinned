@@ -5,13 +5,15 @@ import sys
 
 env = tinned.build_environment()
 
-"""
-dlopen = tinned.function('void* dlopen(const char* filename, int flag = RTLD_LAZY)',
-                         headers='dlcfn.h', possible_libs='dl')
+dlopen = tinned.function(env, 'void* dlopen(const char* filename, int flag = RTLD_LAZY)',
+                         headers=['dlfcn.h'], libs=['dl'])
 
 if dlopen.works():
-    print dlopen.needed_libs
-"""
+    print "dlopen works"
+
+headers = tinned.headers('sys/time.h', 'time.h', 'asio.hpp')
+
+#print headers['sys/time.h']
 
 gettimeofday = tinned.function(env,
     'int gettimeofday(struct timeval* tv = NULL, struct timezone* tz = NULL)',
